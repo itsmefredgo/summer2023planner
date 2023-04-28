@@ -14,6 +14,9 @@ const inter = Inter({ subsets: ["latin"] });
 
 export default function Home() {
   const [foods, setFoods] = useState<Food[]>([]);
+  const [food, setFood] = useState("");
+  const [backendMessage, setBackendMessage] = useState("");
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
     const fetchGroups = async () => {
@@ -25,14 +28,80 @@ export default function Home() {
       );
       const foods = await res.json();
 
-      console.log("FOODS: ");
-      console.log(foods);
-
       setFoods(foods);
     };
 
     fetchGroups();
   }, []);
+
+  const handleSubmit = async (event: any) => {
+    event.preventDefault();
+
+    try {
+      const response = await fetch(
+        "https://smq0v7nrq9.execute-api.us-east-1.amazonaws.com/summer2023planner-stage/summer2023-food-append",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ food }),
+        }
+      );
+
+      const message = await response.json();
+      const decodedResponse = decodeURIComponent(
+        JSON.parse('"' + message.replace(/\"/g, '\\"') + '"')
+      );
+      setMessage(JSON.parse(decodedResponse).message);
+      setFood("");
+      await updateFoodList();
+    } catch (error) {
+      console.error(error);
+      alert("An error occurred while appending the food item");
+    }
+  };
+
+  const removeFoodItem = async (foodname: string) => {
+    try {
+      const responseFromRemoveAPI = await fetch(
+        "https://smq0v7nrq9.execute-api.us-east-1.amazonaws.com/summer2023planner-stage/summer2023-food-delete",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ food: foodname }),
+        }
+      );
+      const message = await responseFromRemoveAPI.json();
+      console.log(message);
+      const decodedResponse = decodeURIComponent(
+        JSON.parse('"' + message.replace(/\"/g, '\\"') + '"')
+      );
+      setMessage(JSON.parse(decodedResponse).message);
+
+      await updateFoodList();
+    } catch (error) {
+      alert("Error caught");
+    }
+  };
+
+  const updateFoodList = async () => {
+    try {
+      const response = await fetch(
+        "https://smq0v7nrq9.execute-api.us-east-1.amazonaws.com/summer2023planner-stage/summer2023-food-retrieve",
+        {
+          method: "GET",
+        }
+      );
+      const foods = await response.json();
+      setFoods(foods);
+    } catch (error) {
+      console.error(error);
+      alert("An error occurred while retrieving the food items");
+    }
+  };
 
   return (
     <>
@@ -44,15 +113,34 @@ export default function Home() {
       </Head>
       <main className={`${styles.main} ${inter.className}`}>
         <h1>Summer 2023 Planner</h1>
+        <h2>{message}</h2>
         <ul>
           {foods.map((food, index) => (
             <li key={index}>
               <h2>{food.food}</h2>
               {!food.eaten ? <p>먹어야 될 것</p> : <p>먹은 것</p>}
+              <button onClick={() => removeFoodItem(food.food)}>
+                Delete
+              </button>{" "}
             </li>
           ))}
         </ul>
+
+        <form onSubmit={handleSubmit}>
+          <label>
+            Food:
+            <input
+              type="text"
+              value={food}
+              onChange={(event) => setFood(event.target.value)}
+            />
+          </label>
+          <button type="submit">Append</button>
+        </form>
       </main>
     </>
   );
+}
+function fetchGroups() {
+  throw new Error("Function not implemented.");
 }
